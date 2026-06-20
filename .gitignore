@@ -35,5 +35,7 @@ Thumbs.db
 
 # Logs and temporary files
 *.log
+*.pid
+*.job
 tmp/
 temp/
