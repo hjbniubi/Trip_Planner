@@ -37,7 +37,7 @@ export function getProgressStatus(progress: number): string {
     return "正在推荐酒店...";
   }
   if (progress < 100) {
-    return "正在生成行程计划...";
+    return "正在生成行程规划...";
   }
   return "完成！";
 }

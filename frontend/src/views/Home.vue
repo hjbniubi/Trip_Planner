@@ -4,7 +4,7 @@ import type { FormInstance } from "ant-design-vue";
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
-import { generateTripPlan } from "@/services/api";
+import { generateTripPlan, getApiErrorMessage } from "@/services/api";
 import type { TripPlanRequest } from "@/types";
 import {
   calculateInclusiveDays,
@@ -138,9 +138,9 @@ async function handleSubmit(): Promise<void> {
       name: "result",
       state: { tripPlan: JSON.stringify(tripPlan) },
     });
-  } catch {
+  } catch (error) {
     stopProgress(0);
-    message.error("生成失败，请稍后重试");
+    message.error(getApiErrorMessage(error));
   } finally {
     loading.value = false;
   }
