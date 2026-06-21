@@ -14,9 +14,22 @@ from app.services.unsplash import UnsplashService
 router = APIRouter(prefix="/trip", tags=["trip"])
 
 
+class LazyTripPlanner:
+    def __init__(self) -> None:
+        self._planner: TripPlannerAgent | None = None
+
+    def plan_trip(self, request: TripPlanRequest) -> TripPlan:
+        if self._planner is None:
+            try:
+                self._planner = TripPlannerAgent()
+            except Exception as exc:
+                raise TripPlannerAgentError("failed to initialize trip planner") from exc
+        return self._planner.plan_trip(request)
+
+
 @lru_cache
-def get_trip_planner() -> TripPlannerAgent:
-    return TripPlannerAgent()
+def get_trip_planner() -> LazyTripPlanner:
+    return LazyTripPlanner()
 
 
 @lru_cache

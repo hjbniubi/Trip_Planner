@@ -154,6 +154,22 @@ def test_plan_trip_endpoint_returns_422_for_invalid_request_payload():
     assert planner.calls == []
 
 
+def test_invalid_payload_is_rejected_before_real_planner_initialization():
+    clear_overrides()
+    get_trip_planner.cache_clear()
+    client = TestClient(app)
+    payload = valid_request_payload()
+    payload["days"] = 2
+
+    try:
+        response = client.post("/api/trip/plan", json=payload)
+    finally:
+        clear_overrides()
+        get_trip_planner.cache_clear()
+
+    assert response.status_code == 422
+
+
 def test_plan_trip_endpoint_maps_timeout_to_504():
     planner = FakePlanner(error=LLMTimeoutError("LLM request timed out"))
     override_dependencies(planner, FakeUnsplash({}))
