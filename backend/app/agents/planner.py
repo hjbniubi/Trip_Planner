@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from json import JSONDecodeError
+from pathlib import Path
 from typing import Any, Callable
 
 from pydantic import ValidationError
@@ -14,6 +15,7 @@ from app.models.schemas import TripPlan, TripPlanRequest
 
 
 AMAP_MCP_SERVER_PACKAGE = "@amap/amap-maps-mcp-server"
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 ATTRACTION_AGENT_PROMPT = """你是景点搜索专家。
@@ -124,6 +126,7 @@ class TripPlannerAgent:
                 env={
                     "AMAP_API_KEY": settings.amap_api_key,
                     "AMAP_MAPS_API_KEY": settings.amap_api_key,
+                    "npm_config_cache": str(BACKEND_DIR / ".npm-cache"),
                 },
             )
 
@@ -175,7 +178,16 @@ class TripPlannerAgent:
         )
         query = self._build_planner_query(request, attractions, weather, hotels)
         planner_response = self.planner_agent.run(query=query)
-        return self._parse_trip_plan(planner_response)
+        try:
+            return self._parse_trip_plan(planner_response)
+        except TripPlannerAgentError as exc:
+            correction_query = self._build_correction_query(
+                request=request,
+                invalid_response=planner_response,
+                validation_error=str(exc.__cause__ or exc),
+            )
+            corrected_response = self.planner_agent.run(query=correction_query)
+            return self._parse_trip_plan(corrected_response)
 
     def _build_planner_query(
         self,
@@ -190,6 +202,97 @@ class TripPlannerAgent:
                 "attractions_info": attractions,
                 "weather_info": weather,
                 "hotels_info": hotels,
+            },
+            ensure_ascii=False,
+        )
+
+    def _build_correction_query(
+        self,
+        request: TripPlanRequest,
+        invalid_response: str,
+        validation_error: str,
+    ) -> str:
+        return json.dumps(
+            {
+                "task": "Fix the previous trip plan response so it matches the backend schema exactly. Return only valid JSON.",
+                "user_request": request.model_dump(),
+                "invalid_response": invalid_response,
+                "validation_error": validation_error,
+                "required_schema": {
+                    "city": "string",
+                    "start_date": "YYYY-MM-DD string",
+                    "end_date": "YYYY-MM-DD string",
+                    "days": [
+                        {
+                            "date": "YYYY-MM-DD string",
+                            "day_index": "integer starting at 0",
+                            "description": "string",
+                            "transportation": "string",
+                            "accommodation": "string",
+                            "hotel": {
+                                "name": "string",
+                                "address": "string",
+                                "location": {
+                                    "longitude": "number between -180 and 180",
+                                    "latitude": "number between -90 and 90",
+                                },
+                                "price_range": "string",
+                                "rating": "string",
+                                "distance": "string",
+                                "type": "string",
+                                "estimated_cost": "non-negative integer",
+                            },
+                            "attractions": [
+                                {
+                                    "name": "string",
+                                    "address": "string",
+                                    "location": {
+                                        "longitude": "number between -180 and 180",
+                                        "latitude": "number between -90 and 90",
+                                    },
+                                    "visit_duration": "positive integer minutes",
+                                    "description": "string",
+                                    "category": "string",
+                                    "rating": "number between 0 and 5",
+                                    "ticket_price": "non-negative integer",
+                                }
+                            ],
+                            "meals": [
+                                {
+                                    "type": "breakfast|lunch|dinner|snack",
+                                    "name": "string",
+                                    "address": "string",
+                                    "estimated_cost": "non-negative integer",
+                                }
+                            ],
+                        }
+                    ],
+                    "weather_info": [
+                        {
+                            "date": "YYYY-MM-DD string",
+                            "day_weather": "string",
+                            "night_weather": "string",
+                            "day_temp": "integer, no unit",
+                            "night_temp": "integer, no unit",
+                            "wind_direction": "string",
+                            "wind_power": "string",
+                        }
+                    ],
+                    "overall_suggestions": "string, not an array",
+                    "budget": {
+                        "total_attractions": "non-negative integer",
+                        "total_hotels": "non-negative integer",
+                        "total_meals": "non-negative integer",
+                        "total_transportation": "non-negative integer",
+                        "total": "sum of the four total_* fields",
+                    },
+                },
+                "rules": [
+                    "Do not return markdown fences or explanatory text.",
+                    "Do not use arrays where the schema requires an object or string.",
+                    "Do not rename weather_info or budget fields.",
+                    "Keep budget.total equal to total_attractions + total_hotels + total_meals + total_transportation.",
+                ],
             },
             ensure_ascii=False,
         )

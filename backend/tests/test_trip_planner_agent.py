@@ -48,6 +48,18 @@ class FakeAgent:
         return self.response
 
 
+class SequenceAgent:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def run(self, **kwargs):
+        self.calls.append(kwargs)
+        if not self.responses:
+            raise AssertionError("No more fake responses configured")
+        return self.responses.pop(0)
+
+
 class RecordingAgentFactory:
     def __init__(self):
         self.created = []
@@ -127,6 +139,45 @@ def valid_trip_json():
     )
 
 
+def invalid_shape_trip_json():
+    return json.dumps(
+        {
+            "city": "Beijing",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-01",
+            "days": [
+                {
+                    "date": "2026-07-01",
+                    "day_index": 0,
+                    "description": "Bad shape",
+                    "transportation": "Subway",
+                    "accommodation": "Hotel",
+                    "hotel": "Home Inn",
+                    "attractions": ["Forbidden City"],
+                    "meals": {"lunch": "Roast duck"},
+                }
+            ],
+            "weather_info": [
+                {
+                    "date": "2026-07-01",
+                    "weather": "Sunny",
+                    "temperature_high": 32,
+                    "temperature_low": 24,
+                }
+            ],
+            "overall_suggestions": ["Book tickets early"],
+            "budget": {
+                "attractions": 60,
+                "hotels": 300,
+                "meals": 80,
+                "transportation": 30,
+                "total": 470,
+            },
+        },
+        ensure_ascii=False,
+    )
+
+
 def make_request():
     return TripPlanRequest(
         city="北京",
@@ -196,6 +247,7 @@ def test_initialization_passes_official_amap_mcp_api_key_env(monkeypatch):
     assert mcp.args == ["-y", "@amap/amap-maps-mcp-server"]
     assert mcp.env["AMAP_API_KEY"] == "amap-test-key"
     assert mcp.env["AMAP_MAPS_API_KEY"] == "amap-test-key"
+    assert mcp.env["npm_config_cache"].endswith("backend\\.npm-cache")
 
 
 def test_build_planner_query_serializes_user_request_and_agent_outputs():
@@ -268,6 +320,26 @@ def test_plan_trip_runs_child_agents_and_returns_trip_plan():
     assert planner_query["attractions_info"] == "景点搜索结果"
     assert planner_query["weather_info"] == "天气查询结果"
     assert planner_query["hotels_info"] == "酒店推荐结果"
+
+
+def test_plan_trip_retries_once_when_planner_json_has_invalid_shape():
+    planner_agent = SequenceAgent([invalid_shape_trip_json(), valid_trip_json()])
+    request = make_request()
+    planner = TripPlannerAgent(
+        attraction_agent=FakeAgent("attractions"),
+        weather_agent=FakeAgent("weather"),
+        hotel_agent=FakeAgent("hotels"),
+        planner_agent=planner_agent,
+    )
+
+    trip_plan = planner.plan_trip(request)
+
+    assert trip_plan.city == request.city
+    assert len(planner_agent.calls) == 2
+    retry_query = planner_agent.calls[1]["query"]
+    assert "validation_error" in retry_query
+    assert "Return only valid JSON" in retry_query
+    assert "Forbidden City" in retry_query
 
 
 def test_close_delegates_to_shared_mcp():
