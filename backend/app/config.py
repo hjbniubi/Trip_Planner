@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     app_name: str = "AI Travel Planner"
     api_prefix: str = "/api"
     llm_api_key: str = ""
-    llm_model: str = "gpt-4o"
-    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "deepseek-chat"
+    llm_base_url: str = "https://api.deepseek.com/v1"
     llm_timeout: int = 90
     amap_api_key: str = ""
     unsplash_access_key: str = ""

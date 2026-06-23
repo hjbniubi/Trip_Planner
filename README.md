@@ -9,7 +9,7 @@
 | 智能行程生成 | 已实现 | 调用 `/api/trip/plan`，返回结构化 `TripPlan` JSON |
 | 多智能体编排 | 已实现 | 景点、天气、酒店、总规划四类 Agent 分工协作 |
 | 高德 MCP 工具调用 | 已实现 | 自建 JSON-RPC MCP Client，延迟初始化外部 MCP 服务 |
-| LLM 兼容封装 | 已实现 | 支持 OpenAI / DeepSeek 兼容 Chat Completions 接口 |
+| LLM 兼容封装 | 已实现 | 默认优先使用 DeepSeek，兼容 OpenAI Chat Completions 接口 |
 | Unsplash 图片增强 | 已实现 | 为缺少图片的景点补充图片 URL，未配置 Key 时自动跳过 |
 | 前端表单 | 已实现 | Vue 3 + Ant Design Vue，含日期校验、进度提示、错误提示 |
 | 结果页展示 | 已实现 | 展示每日行程、天气、预算、景点坐标和地图容器 |
@@ -38,7 +38,7 @@
 - Node.js 18+，并确保 `npx` 可用
 - 高德地图 Web 服务 API Key：用于 MCP Server 查询景点、天气、酒店
 - 高德地图 JS API Key：用于前端地图展示，可选
-- LLM API Key：OpenAI 或 DeepSeek 兼容接口
+- LLM API Key：默认使用 DeepSeek，也可切换到其它 OpenAI 兼容接口
 - Unsplash Access Key：用于景点图片增强，可选
 
 ## 环境变量
@@ -54,9 +54,9 @@ copy .env.example .env
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `LLM_API_KEY` | 是 | OpenAI / DeepSeek 兼容接口密钥 |
-| `LLM_MODEL` | 是 | 例如 `gpt-4o` 或 `deepseek-chat` |
-| `LLM_BASE_URL` | 是 | 例如 `https://api.openai.com/v1` |
+| `LLM_API_KEY` | 是 | DeepSeek 或其它 OpenAI 兼容接口密钥 |
+| `LLM_MODEL` | 是 | 默认 `deepseek-chat` |
+| `LLM_BASE_URL` | 是 | 默认 `https://api.deepseek.com/v1` |
 | `LLM_TIMEOUT` | 否 | 单次 LLM 请求超时时间，默认 90 秒 |
 | `AMAP_API_KEY` | 是 | 高德 Web 服务 Key，传给 MCP Server |
 | `UNSPLASH_ACCESS_KEY` | 否 | 未配置时图片增强会自动跳过 |

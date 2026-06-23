@@ -9,7 +9,8 @@ def test_settings_have_safe_development_defaults():
 
     assert settings.app_name == "AI Travel Planner"
     assert settings.api_prefix == "/api"
-    assert settings.llm_model == "gpt-4o"
+    assert settings.llm_model == "deepseek-chat"
+    assert settings.llm_base_url == "https://api.deepseek.com/v1"
     assert settings.llm_timeout == 90
     assert "http://localhost:5173" in settings.cors_origins
     assert "http://127.0.0.1:5173" in settings.cors_origins
