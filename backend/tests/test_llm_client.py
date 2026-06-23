@@ -1,7 +1,12 @@
 import httpx
 import pytest
 
-from app.core.llm_client import LLMClient, LLMResponseError, LLMTimeoutError
+from app.core.llm_client import (
+    LLMAuthenticationError,
+    LLMClient,
+    LLMResponseError,
+    LLMTimeoutError,
+)
 
 
 class FakeHttpClient:
@@ -125,6 +130,23 @@ def test_chat_maps_timeout_to_custom_error():
         client.chat([{"role": "user", "content": "hello"}])
 
     assert "LLM request timed out" in str(exc_info.value)
+
+
+def test_chat_maps_authentication_error_without_retrying():
+    http_client = FakeHttpClient([json_response(401, {"error": "invalid api key"})])
+    client = LLMClient(
+        api_key="bad-key",
+        base_url="https://api.example.com/v1",
+        model="test-model",
+        http_client=http_client,
+        sleep=lambda _: None,
+    )
+
+    with pytest.raises(LLMAuthenticationError) as exc_info:
+        client.chat([{"role": "user", "content": "hello"}])
+
+    assert "LLM API key is invalid or unauthorized" in str(exc_info.value)
+    assert len(http_client.requests) == 1
 
 
 def test_chat_raises_response_error_when_content_is_missing():

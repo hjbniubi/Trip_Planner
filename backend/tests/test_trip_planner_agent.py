@@ -10,6 +10,7 @@ from app.agents.planner import (
     TripPlannerAgent,
     TripPlannerAgentError,
 )
+from app.config import get_settings
 from app.models.schemas import TripPlan, TripPlanRequest
 
 
@@ -54,6 +55,17 @@ class RecordingAgentFactory:
     def __call__(self, **kwargs):
         self.created.append(kwargs)
         return FakeAgent(kwargs["name"])
+
+
+class RecordingMCPClient(FakeMCP):
+    created = []
+
+    def __init__(self, command, args, env):
+        super().__init__()
+        self.command = command
+        self.args = args
+        self.env = env
+        self.created.append(self)
 
 
 def valid_trip_json():
@@ -167,6 +179,23 @@ def test_initialization_starts_shared_mcp_and_creates_four_agents():
     assert factory.created[3]["tools"] == []
     assert factory.created[3]["mcp"] is None
     assert agent.mcp is mcp
+
+
+def test_initialization_passes_official_amap_mcp_api_key_env(monkeypatch):
+    RecordingMCPClient.created = []
+    get_settings.cache_clear()
+    monkeypatch.setenv("AMAP_API_KEY", "amap-test-key")
+    monkeypatch.setattr("app.agents.planner.MCPClient", RecordingMCPClient)
+
+    try:
+        TripPlannerAgent(llm=object(), agent_factory=RecordingAgentFactory())
+    finally:
+        get_settings.cache_clear()
+
+    mcp = RecordingMCPClient.created[0]
+    assert mcp.args == ["-y", "@amap/amap-maps-mcp-server"]
+    assert mcp.env["AMAP_API_KEY"] == "amap-test-key"
+    assert mcp.env["AMAP_MAPS_API_KEY"] == "amap-test-key"
 
 
 def test_build_planner_query_serializes_user_request_and_agent_outputs():

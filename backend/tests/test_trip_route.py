@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from app.agents.planner import TripPlannerAgentError
 from app.api.main import app
 from app.api.routes.trip import get_trip_planner, get_unsplash_service
-from app.core.llm_client import LLMTimeoutError
+from app.core.llm_client import LLMAuthenticationError, LLMTimeoutError
 from app.core.mcp_client import MCPClientError
 from app.models.schemas import TripPlan
 
@@ -182,6 +182,20 @@ def test_plan_trip_endpoint_maps_timeout_to_504():
 
     assert response.status_code == 504
     assert response.json()["detail"] == "规划生成超时，请稍后重试"
+
+
+def test_plan_trip_endpoint_maps_llm_authentication_errors_to_502():
+    planner = FakePlanner(error=LLMAuthenticationError("bad api key"))
+    override_dependencies(planner, FakeUnsplash({}))
+    client = TestClient(app)
+
+    try:
+        response = client.post("/api/trip/plan", json=valid_request_payload())
+    finally:
+        clear_overrides()
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "LLM API Key 无效或无权限，请检查后端 .env 配置"
 
 
 def test_plan_trip_endpoint_maps_planning_errors_to_500():

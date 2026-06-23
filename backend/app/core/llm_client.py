@@ -15,6 +15,10 @@ class LLMTimeoutError(LLMClientError):
     """Raised when the upstream LLM request times out."""
 
 
+class LLMAuthenticationError(LLMClientError):
+    """Raised when the upstream LLM rejects the configured API key."""
+
+
 class LLMResponseError(LLMClientError):
     """Raised when the upstream LLM response cannot be used."""
 
@@ -80,6 +84,10 @@ class LLMClient:
                 if response.status_code >= 500 and attempt < 2:
                     self._sleep(2**attempt)
                     continue
+                if response.status_code in {401, 403}:
+                    raise LLMAuthenticationError(
+                        "LLM API key is invalid or unauthorized"
+                    )
                 response.raise_for_status()
                 return self._extract_content(response)
             except httpx.TimeoutException as exc:

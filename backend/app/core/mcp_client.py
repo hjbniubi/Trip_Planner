@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from collections.abc import Callable
 from typing import Any
@@ -138,8 +139,9 @@ class MCPClient:
         args: list[str],
         env: dict[str, str],
     ) -> subprocess.Popen:
+        resolved_command = self._resolve_command(command)
         return subprocess.Popen(
-            [command, *args],
+            [resolved_command, *args],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -147,3 +149,10 @@ class MCPClient:
             encoding="utf-8",
             env=env,
         )
+
+    def _resolve_command(self, command: str) -> str:
+        if os.name == "nt" and command.lower() == "npx":
+            npx_cmd = shutil.which("npx.cmd")
+            if npx_cmd:
+                return npx_cmd
+        return command

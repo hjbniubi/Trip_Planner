@@ -13,6 +13,9 @@ from app.core.mcp_client import MCPClient
 from app.models.schemas import TripPlan, TripPlanRequest
 
 
+AMAP_MCP_SERVER_PACKAGE = "@amap/amap-maps-mcp-server"
+
+
 ATTRACTION_AGENT_PROMPT = """你是景点搜索专家。
 
 可用工具:
@@ -117,8 +120,11 @@ class TripPlannerAgent:
         if self.mcp is None:
             self.mcp = MCPClient(
                 command="npx",
-                args=["-y", "@sugarforever/amap-mcp-server"],
-                env={"AMAP_API_KEY": settings.amap_api_key},
+                args=["-y", AMAP_MCP_SERVER_PACKAGE],
+                env={
+                    "AMAP_API_KEY": settings.amap_api_key,
+                    "AMAP_MAPS_API_KEY": settings.amap_api_key,
+                },
             )
 
         self.mcp.start()

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.agents.planner import TripPlannerAgent, TripPlannerAgentError
 from app.config import get_settings
-from app.core.llm_client import LLMClientError, LLMTimeoutError
+from app.core.llm_client import LLMAuthenticationError, LLMClientError, LLMTimeoutError
 from app.core.mcp_client import MCPClientError
 from app.models.schemas import TripPlan, TripPlanRequest
 from app.services.unsplash import UnsplashService
@@ -46,6 +46,11 @@ def plan_trip(
 ) -> TripPlan:
     try:
         trip_plan = planner.plan_trip(request)
+    except LLMAuthenticationError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="LLM API Key 无效或无权限，请检查后端 .env 配置",
+        ) from exc
     except LLMTimeoutError as exc:
         raise HTTPException(status_code=504, detail="规划生成超时，请稍后重试") from exc
     except (TripPlannerAgentError, MCPClientError, LLMClientError) as exc:

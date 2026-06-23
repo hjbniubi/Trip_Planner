@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from app.core import mcp_client as mcp_client_module
 from app.core.mcp_client import MCPClient, MCPClientError, MCPProtocolError
 
 
@@ -72,7 +73,7 @@ def test_start_uses_command_args_and_merged_environment():
     factory = ProcessFactory([process])
     client = MCPClient(
         command="npx",
-        args=["-y", "@sugarforever/amap-mcp-server"],
+        args=["-y", "@amap/amap-maps-mcp-server"],
         env={"AMAP_API_KEY": "amap-test-key"},
         process_factory=factory,
     )
@@ -81,7 +82,7 @@ def test_start_uses_command_args_and_merged_environment():
 
     assert client.process is process
     assert factory.calls[0]["command"] == "npx"
-    assert factory.calls[0]["args"] == ["-y", "@sugarforever/amap-mcp-server"]
+    assert factory.calls[0]["args"] == ["-y", "@amap/amap-maps-mcp-server"]
     assert factory.calls[0]["env"]["AMAP_API_KEY"] == "amap-test-key"
     assert "PATH" in factory.calls[0]["env"]
 
@@ -239,3 +240,15 @@ def test_request_restarts_process_when_previous_process_exited():
 
     assert client.process is running_process
     assert len(factory.calls) == 2
+
+
+def test_resolve_command_uses_cmd_shim_for_npx_on_windows(monkeypatch):
+    monkeypatch.setattr(mcp_client_module.os, "name", "nt")
+    monkeypatch.setattr(
+        mcp_client_module.shutil,
+        "which",
+        lambda command: "D:\\webziliao\\NodeJS\\npx.cmd" if command == "npx.cmd" else None,
+    )
+    client = MCPClient("npx", [])
+
+    assert client._resolve_command("npx") == "D:\\webziliao\\NodeJS\\npx.cmd"
