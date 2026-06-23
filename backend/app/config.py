@@ -5,6 +5,7 @@ from pydantic import field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
+    DotEnvSettingsSource,
     EnvSettingsSource,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
@@ -12,6 +13,19 @@ from pydantic_settings import (
 
 
 class CommaSeparatedEnvSettingsSource(EnvSettingsSource):
+    def prepare_field_value(
+        self,
+        field_name: str,
+        field: FieldInfo,
+        value: Any,
+        value_is_complex: bool,
+    ) -> Any:
+        if field_name == "cors_origins" and isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return super().prepare_field_value(field_name, field, value, value_is_complex)
+
+
+class CommaSeparatedDotEnvSettingsSource(DotEnvSettingsSource):
     def prepare_field_value(
         self,
         field_name: str,
@@ -62,7 +76,11 @@ class Settings(BaseSettings):
         return (
             init_settings,
             CommaSeparatedEnvSettingsSource(settings_cls),
-            dotenv_settings,
+            CommaSeparatedDotEnvSettingsSource(
+                settings_cls,
+                env_file=cls.model_config.get("env_file"),
+                env_file_encoding=cls.model_config.get("env_file_encoding"),
+            ),
             file_secret_settings,
         )
 

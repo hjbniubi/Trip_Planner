@@ -28,6 +28,23 @@ def test_settings_read_environment_overrides(monkeypatch):
     assert settings.cors_origins == ["http://localhost:5173", "http://localhost:4173"]
 
 
+def test_settings_read_comma_separated_cors_origins_from_dotenv(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    settings = Settings()
+
+    assert settings.cors_origins == [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+
 def test_health_endpoint_returns_ok():
     client = TestClient(app)
 
